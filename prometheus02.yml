@@ -1,0 +1,86 @@
+global:
+  scrape_interval: 15s
+  scrape_timeout: 15s
+  evaluation_interval: 15s
+  external_labels:
+    server_name: prometheus02
+    site: prod
+# Add VictoriaMetrics
+remote_write:
+  - url: http://192.168.1.232:8428/api/v1/write
+    queue_config:
+      max_samples_per_send: 10000
+      capacity: 20000
+      max_shards: 30
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets: ['localhost:9093']
+
+rule_files:
+  - "alert.rules.yml"
+
+scrape_configs:
+
+  - job_name: 'prometheus'
+    scrape_interval: 5s
+    scrape_timeout: 5s
+    static_configs:
+      - targets: ['localhost:9090', 'localhost:9115']
+
+  - job_name: 'postgress'
+    scrape_interval: 5s
+    scrape_timeout: 5s
+    static_configs:
+     - targets: ['localhost:9187']
+
+  - job_name: 'node'
+    scrape_interval: 5s
+    scrape_timeout: 5s
+    static_configs:
+      - targets: ['localhost:9100', '192.168.1.102:9182']
+
+  - job_name: 'node_victoria'
+    scrape_interval: 5s
+    scrape_timeout: 5s
+    static_configs:
+      - targets: ['192.168.1.232:8428']
+
+  - job_name: 'blackbox'
+    honor_timestamps: true
+    params:
+      module:
+      - http_2xx
+    scrape_interval: 5s
+    scrape_timeout: 5s
+    metrics_path: /probe
+    scheme: http
+    follow_redirects: true
+    relabel_configs:
+    - source_labels: [__address__]
+      separator: ;
+      regex: (.*)
+      target_label: __param_target
+      replacement: $1
+      action: replace
+    - source_labels: [__param_target]
+      separator: ;
+      regex: (.*)
+      target_label: instance
+      replacement: $1
+      action: replace
+    - separator: ;
+      regex: (.*)
+      target_label: __address__
+      replacement: localhost:9115
+      action: replace
+    static_configs:
+    - targets: ['https://otus.ru', 'https://fat123.keenetic.pro']
+
+  - job_name: 'nginx'
+    scrape_interval: 5s
+    scrape_timeout: 5s
+    static_configs:
+     - targets: ['192.168.1.232:9113', '192.168.1.202:9113']
